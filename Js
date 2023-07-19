@@ -1,0 +1,179 @@
+var world = {
+  force: { x: 0, y: 0.05 },
+  air_density: 0.1,
+};
+var ps = {};
+var dimensions = { w: 5, h: 4 };
+var stiffness = 0.3;
+var rest_length = 30;
+var damping_factor = 0.3;
+var neighbors = [
+  { x: -1, y: -1 },
+  { x: 0, y: -1 },
+  { x: 1, y: -1 },
+  { x: -1, y: 0 },
+  { x: 1, y: 0 },
+  { x: -1, y: 1 },
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+];
+var selected = { x: null, y: null };
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  textAlign(CENTER);
+  for (var i = 0; i < dimensions.w; i++) {
+    for (var j = 0; j < dimensions.h; j++) {
+      var randr = { dir: random(TWO_PI), speed: random(5) };
+      ps[i + ":" + j] = {
+        spot: {
+          x: i,
+          y: j,
+        },
+        pos: {
+          x: 50 + i * rest_length,
+          y: 50 + j * rest_length,
+        },
+        vel: {
+          x: sin(randr.dir) * randr.speed,
+          y: cos(randr.dir) * randr.speed,
+        },
+        force: {
+          x: 0,
+          y: 0,
+        },
+        mass: 10,
+        size: 20,
+      };
+    }
+  }
+}
+
+function draw() {
+  background(220);
+  noStroke();
+  for (var i = 0; i < Object.keys(ps).length; i++) {
+    var p = Object.values(ps)[i];
+    p.force = { x: 0, y: 0 };
+    p.force.x += world.force.x * p.mass;
+    p.force.y += world.force.y * p.mass;
+    for (var j = 0; j < neighbors.length; j++) {
+      var p1 =
+        ps[p.spot.x + neighbors[j].x + ":" + (p.spot.y + neighbors[j].y)];
+      if (p1 != undefined) {
+        if (p.pos.x != p1.pos.x && p.pos.x != p1.pos.x) {
+          var nd = dist(p.pos.x, p.pos.y, p1.pos.x, p1.pos.y);
+          var ndir = atan2(p1.pos.x - p.pos.x, p1.pos.y - p.pos.y);
+          if (d != 0) {
+            var rl = rest_length; // - 20 + (p.mass + p1.mass) / 2
+            p.force.x +=
+              sin(ndir) *
+              p1.mass *
+              (stiffness *
+                (nd - rl * dist(0, 0, neighbors[j].x, neighbors[j].y)));
+            p.force.y +=
+              cos(ndir) *
+              p1.mass *
+              (stiffness *
+                (nd - rl * dist(0, 0, neighbors[j].x, neighbors[j].y)));
+            var dvel =
+              dist(p1.pos.x, p1.pos.y, p.pos.x, p.pos.y) -
+              dist(
+                p1.pos.x + p1.vel.x,
+                p1.pos.y + p1.vel.y,
+                p.pos.x + p.vel.x,
+                p.pos.y + p.vel.y
+              );
+
+            p.force.x -= sin(ndir) * dvel * damping_factor;
+            p.force.y -= cos(ndir) * dvel * damping_factor;
+          }
+        }
+      }
+    }
+    var dir = atan2(p.vel.x, p.vel.y);
+    var d = dist(0, 0, p.vel.x, p.vel.y);
+    // p.force.x -= sin(dir) * d * world.air_density;
+    // p.force.y -= cos(dir) * d * world.air_density;
+  }
+  for (var i = 0; i < Object.keys(ps).length; i++) {
+    var p = Object.values(ps)[i];
+    var friction = 100;
+    if (p.pos.x >= width - p.size / 2 && p.vel.x >= 0) {
+      p.pos.x = width - p.size / 2;
+      p.vel.x /= friction;
+      p.vel.y /= friction;
+      p.vel.x *= -1;
+    }
+    if (p.pos.x <= 0 + p.size / 2 && p.vel.x <= 0) {
+      p.pos.x = 0 + p.size / 2;
+      p.vel.x /= friction;
+      p.vel.y /= friction;
+      p.vel.x *= -1;
+    }
+    if (p.pos.y >= height - p.size / 2 && p.vel.y >= 0) {
+      p.pos.y = height - p.size / 2;
+      p.vel.x /= friction;
+      p.vel.y /= friction;
+      p.vel.y *= -1;
+    }
+    if (dist(0, 0, p.force.x, p.force.y) > 0.1) {
+      p.vel.x += p.force.x / p.mass;
+      p.vel.y += p.force.y / p.mass;
+    }
+    for (var j = 0; j < neighbors.length; j++) {
+      var p1 =
+        ps[p.spot.x + neighbors[j].x + ":" + (p.spot.y + neighbors[j].y)];
+      if (p1 != undefined) {
+        var d = dist(p.pos.x, p.pos.y, p1.pos.x, p1.pos.y);
+        if (d < p.size) {
+          var dir = atan2(p1.pos.x - p.pos.x, p1.pos.y - p.pos.y);
+          p.pos.x -= (sin(dir) * (p.size - d)) / 2;
+          p.pos.y -= (cos(dir) * (p.size - d)) / 2;
+          p1.pos.x += (sin(dir) * (p.size - d)) / 2;
+          p1.pos.y += (cos(dir) * (p.size - d)) / 2;
+        }
+        if (p.pos.x != p1.pos.x && p.pos.x != p1.pos.x) {
+          stroke(200);
+          strokeWeight(5);
+          line(p.pos.x, p.pos.y, p1.pos.x, p1.pos.y);
+          noStroke();
+        }
+      }
+    }
+  }
+  var pos = { x: 0, y: 0 };
+  for (var i = 0; i < Object.keys(ps).length; i++) {
+    var p = Object.values(ps)[i];
+    hn = 5;
+    fill(((p.mass - hn) / hn) * 255, 150, 150);
+    ellipse(p.pos.x, p.pos.y, p.size);
+    if (dist(0, 0, p.vel.x, p.vel.y) > 0.1) {
+      p.pos.x += p.vel.x;
+      p.pos.y += p.vel.y;
+    }
+    if (mouseIsPressed) {
+      if (
+        selected.x == null &&
+        selected.y == null &&
+        dist(mouseX, mouseY, p.pos.x, p.pos.y) < p.size / 2
+      ) {
+        selected.x = p.spot.x;
+        selected.y = p.spot.y;
+      }
+    } else {
+      selected.x = null;
+      selected.y = null;
+    }
+    if (mouseIsPressed && selected.x == p.spot.x && selected.y == p.spot.y) {
+      p.vel.x += (mouseX - p.pos.x) / 2;
+      p.vel.y += (mouseY - p.pos.y) / 2;
+      p.pos.x = mouseX;
+      p.pos.y = mouseY;
+    }
+    pos.x += p.pos.x;
+    pos.y += p.pos.y;
+  }
+  pos.x /= Object.keys(ps).length;
+  pos.y /= Object.keys(ps).length;
+  text(floor(pos.x) + "\n" + floor(-pos.y + height), 150, 50);
+}
